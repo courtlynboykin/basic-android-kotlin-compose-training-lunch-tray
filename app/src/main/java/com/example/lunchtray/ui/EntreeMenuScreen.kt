@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("UNCHECKED_CAST")
+
 package com.example.lunchtray.ui
 
 import androidx.compose.foundation.layout.padding

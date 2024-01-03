@@ -16,39 +16,134 @@
 package com.example.lunchtray
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.example.lunchtray.datasource.DataSource
+import com.example.lunchtray.ui.AccompanimentMenuScreen
+import com.example.lunchtray.ui.CheckoutScreen
+import com.example.lunchtray.ui.EntreeMenuScreen
 import com.example.lunchtray.ui.OrderViewModel
+import com.example.lunchtray.ui.SideDishMenuScreen
+import com.example.lunchtray.ui.StartOrderScreen
 
 // enum values that represent the screens in the app
-enum class Menus(@StringRes val title: Int){
+enum class LunchTrayScreen(@StringRes val title: Int) {
     Start(title = R.string.app_name),
     Entree(title = R.string.choose_entree),
     SideDish(title = R.string.choose_side_dish),
     Accompaniment(title = R.string.choose_accompaniment),
     Checkout(title = R.string.order_checkout)
 }
-// TODO: AppBar
 
+// TODO: AppBar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LunchTrayApp() {
-    // TODO: Create Controller and initialization
+fun LunchTrayAppBar(
+    currentScreen: LunchTrayScreen,
+    canNavigateBack: Boolean,
+    navigateUp: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TopAppBar(title = { Text(stringResource(currentScreen.title)) },
+        modifier = modifier,
+        navigationIcon = {
+            if (canNavigateBack) {
+                IconButton(onClick = navigateUp) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back_button)
+                    )
+                }
+            }
+        }
+    )
+}
 
+@Composable
+fun LunchTrayApp(navController: NavHostController = rememberNavController()) {
+    // Get current back stack entry
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    // Get the current screen
+    val currentScreen = LunchTrayScreen.valueOf(
+        backStackEntry?.destination?.route ?: LunchTrayScreen.Start.name
+    )
     // Create ViewModel
     val viewModel: OrderViewModel = viewModel()
 
     Scaffold(
         topBar = {
-            // TODO: AppBar
+            LunchTrayAppBar(
+                currentScreen = currentScreen,
+                canNavigateBack = navController.previousBackStackEntry != null,
+                navigateUp = { navController.navigateUp() }
+            )
         }
     ) { innerPadding ->
         val uiState by viewModel.uiState.collectAsState()
+        val start = { navController.navigate(LunchTrayScreen.Start.name) }
 
-        // TODO: Navigation host
+        // Navigation host
+        NavHost(
+            navController = navController,
+            startDestination = LunchTrayScreen.Start.name,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(route = LunchTrayScreen.Start.name) {
+                StartOrderScreen(onStartOrderButtonClicked = {
+                    navController.navigate(
+                        LunchTrayScreen.Entree.name
+                    )
+                })
+            }
+            composable(route = LunchTrayScreen.Entree.name) {
+                EntreeMenuScreen(
+                    options = DataSource.entreeMenuItems,
+                    onCancelButtonClicked = start,
+                    onNextButtonClicked = { navController.navigate(LunchTrayScreen.SideDish.name) },
+                    onSelectionChanged = { viewModel.updateEntree(it) }
+                )
+            }
+            composable(route = LunchTrayScreen.SideDish.name) {
+                SideDishMenuScreen(
+                    options = DataSource.sideDishMenuItems,
+                    onCancelButtonClicked = start,
+                    onNextButtonClicked = { navController.navigate(LunchTrayScreen.Accompaniment.name) },
+                    onSelectionChanged = { viewModel.updateSideDish(it) }
+                )
+            }
+            composable(route = LunchTrayScreen.Accompaniment.name) {
+                AccompanimentMenuScreen(
+                    options = DataSource.accompanimentMenuItems,
+                    onCancelButtonClicked = start,
+                    onNextButtonClicked = { navController.navigate(LunchTrayScreen.Checkout.name) },
+                    onSelectionChanged = { viewModel.updateAccompaniment(it) }
+                )
+            }
+            composable(route = LunchTrayScreen.Checkout.name) {
+                CheckoutScreen(
+                    orderUiState = uiState,
+                    onNextButtonClicked = start,
+                    onCancelButtonClicked = start
+                )
+            }
+        }
     }
 }
